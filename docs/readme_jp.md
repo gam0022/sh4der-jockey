@@ -274,6 +274,9 @@ uniform float time_delta;
 // BPMはコントロールパネルから設定できます。
 uniform float beat;
 
+// Sound2Light OSCまたはタップテンポによる現在のBPM
+uniform float bpm;
+
 // コントロールパネルにあるスライダーの値に対応します
 uniform float sliders[32];
 

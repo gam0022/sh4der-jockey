@@ -639,6 +639,7 @@ impl Jockey {
         let screen_size = self.ctx.context.window().inner_size();
         let (width, height) = (screen_size.width as u32, screen_size.height as u32);
         let beat = self.beat_sync.beat();
+        let bpm = self.beat_sync.bpm();
         let now = Instant::now();
         let time = self.time;
         let time_since_build = self.time_since_build;
@@ -766,6 +767,7 @@ impl Jockey {
                         gl::GetUniformLocation(stage.prog_id, FRAME_COUNT_SINCE_BUILD_NAME.as_ptr());
                     let delta_loc = gl::GetUniformLocation(stage.prog_id, TIME_DELTA_NAME.as_ptr());
                     let beat_loc = gl::GetUniformLocation(stage.prog_id, BEAT_NAME.as_ptr());
+                    let bpm_loc = gl::GetUniformLocation(stage.prog_id, BPM_NAME.as_ptr());
                     let volume_loc = gl::GetUniformLocation(stage.prog_id, VOLUME_NAME.as_ptr());
                     let volume_integrated_loc =
                         gl::GetUniformLocation(stage.prog_id, VOLUME_INTEGRATED_NAME.as_ptr());
@@ -891,6 +893,7 @@ impl Jockey {
                     gl::Uniform1f(time_loc, time);
                     gl::Uniform1f(time_since_build_loc, time_since_build);
                     gl::Uniform1f(beat_loc, beat);
+                    gl::Uniform1f(bpm_loc, bpm);
                     gl::Uniform1f(delta_loc, delta);
                     gl_debug_check!();
                 }
