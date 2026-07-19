@@ -269,6 +269,9 @@ uniform float time_delta;
 // BPM is controlled by tap tempo in control panel
 uniform float beat;
 
+// current BPM from Sound2Light OSC or tap tempo
+uniform float bpm;
+
 // array of sliders, corresponding to the sliders in control panel
 uniform float sliders[32];
 

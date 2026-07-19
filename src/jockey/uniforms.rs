@@ -27,6 +27,7 @@ lazy_static! {
 
     // direct user input
     pub static ref BEAT_NAME: CString = CString::new("beat").unwrap();
+    pub static ref BPM_NAME: CString = CString::new("bpm").unwrap();
     pub static ref SLIDERS_NAME: CString = CString::new("sliders").unwrap();
     pub static ref BUTTONS_NAME: CString = CString::new("buttons").unwrap();
 
