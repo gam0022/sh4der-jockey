@@ -278,7 +278,7 @@ uniform float beat;
 uniform float bpm;
 
 // コントロールパネルにあるスライダーの値に対応します
-uniform float sliders[32];
+uniform float sliders[64];
 
 // コントロールパネルにあるボタンに対応します
 // buttons[i] = vec4(intensity, since_last_on, since_last_off, count);
@@ -286,7 +286,7 @@ uniform float sliders[32];
 // since_last_on: 直近の NoteOn からの経過秒数
 // since_last_off: 直近の NoteOff からの経過秒数
 // count: NoteOnが何回発行されたかを数え上げる整数値
-uniform vec4 buttons[32];
+uniform vec4 buttons[64];
 
 // 32x32x32の乱数テキスチャ。
 // パイプラインが読み込まれるたびに再計算されるので

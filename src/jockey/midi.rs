@@ -10,7 +10,7 @@ use midir::{Ignore, MidiInput, MidiInputConnection, MidiInputPort};
 
 use super::Config;
 
-pub const MIDI_N: usize = 32;
+pub const MIDI_N: usize = 64;
 
 pub struct Midi {
     pub conns: Vec<MidiInputConnection<()>>,
