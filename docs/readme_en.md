@@ -273,7 +273,7 @@ uniform float beat;
 uniform float bpm;
 
 // array of sliders, corresponding to the sliders in control panel
-uniform float sliders[32];
+uniform float sliders[64];
 
 // array of buttons, corresponding to buttons in control panel
 // buttons[i] = vec4(intensity, since_last_on, since_last_off, count);
@@ -281,7 +281,7 @@ uniform float sliders[32];
 // since_last_on: time in seconds since last NoteOn event
 // since_last_off: time in seconds since last NoteOff event
 // count: integer count of how many times button has been pressed
-uniform vec4 buttons[32];
+uniform vec4 buttons[64];
 
 // A 32x32x32 random noise texture.
 // Note this texture is recalculated per pipeline load,

@@ -5,8 +5,8 @@ uniform float time;
 
 uniform sampler2D tex;
 
-uniform float sliders[32];
-uniform vec4 buttons[32];
+uniform float sliders[64];
+uniform vec4 buttons[64];
 
 vec3 rainbow(float x) {
     x = x * 3.0 - 1.5;
