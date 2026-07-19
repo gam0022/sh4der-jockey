@@ -44,7 +44,7 @@ pub struct Stage {
 }
 
 impl Stage {
-    pub fn from_yaml(object: Value) -> Result<Self, String> {
+    pub async fn from_yaml(object: Value) -> Result<Self, String> {
         let perf = RunningAverage::new();
         let deps = Vec::new();
 
@@ -189,13 +189,15 @@ impl Stage {
                 let vs = PASS_VERT;
                 let fs = preprocess(&fs.0, &fs.1, &mut lut)?;
 
-                let vs_id =
-                    compile_shader(&vs, gl::VERTEX_SHADER).map_err(|e| process_error(e, &lut))?;
-                let fs_id =
-                    compile_shader(&fs, gl::FRAGMENT_SHADER).map_err(|e| process_error(e, &lut))?;
+                let vs_id = compile_shader_async(&vs, gl::VERTEX_SHADER)
+                    .await
+                    .map_err(|e| process_error(e, &lut))?;
+                let fs_id = compile_shader_async(&fs, gl::FRAGMENT_SHADER)
+                    .await
+                    .map_err(|e| process_error(e, &lut))?;
 
                 let sh_ids = vec![vs_id, fs_id];
-                let prog_id = link_program(&sh_ids)?;
+                let prog_id = link_program_async(&sh_ids).await?;
 
                 let builder = TextureBuilder::parse(&object, true, true)?;
 
@@ -226,13 +228,15 @@ impl Stage {
                     None => PASS_FRAG.into(),
                 };
 
-                let vs_id =
-                    compile_shader(&vs, gl::VERTEX_SHADER).map_err(|e| process_error(e, &lut))?;
-                let fs_id =
-                    compile_shader(&fs, gl::FRAGMENT_SHADER).map_err(|e| process_error(e, &lut))?;
+                let vs_id = compile_shader_async(&vs, gl::VERTEX_SHADER)
+                    .await
+                    .map_err(|e| process_error(e, &lut))?;
+                let fs_id = compile_shader_async(&fs, gl::FRAGMENT_SHADER)
+                    .await
+                    .map_err(|e| process_error(e, &lut))?;
 
                 let sh_ids = vec![vs_id, fs_id];
-                let prog_id = link_program(&sh_ids)?;
+                let prog_id = link_program_async(&sh_ids).await?;
 
                 let count = match object.get("count") {
                     Some(s) => match s.as_u64() {
@@ -307,10 +311,11 @@ impl Stage {
             [None, None, Some(cs)] => {
                 let cs = preprocess(&cs.0, &cs.1, &mut lut)?;
 
-                let cs_id =
-                    compile_shader(&cs, gl::COMPUTE_SHADER).map_err(|e| process_error(e, &lut))?;
+                let cs_id = compile_shader_async(&cs, gl::COMPUTE_SHADER)
+                    .await
+                    .map_err(|e| process_error(e, &lut))?;
                 let sh_ids = vec![cs_id];
-                let prog_id = link_program(&sh_ids)?;
+                let prog_id = link_program_async(&sh_ids).await?;
 
                 // get target resolution
                 let dispatch = match object

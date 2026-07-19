@@ -248,8 +248,8 @@ impl Jockey {
                 .expect("Failed to activate windowed context")
         };
 
-        let prog_addr = |s| context.get_proc_address(s) as _;
-        gl::load_with(prog_addr);
+        gl::load_with(|s| context.get_proc_address(s) as _);
+        init_parallel_shader_compile(|s| context.get_proc_address(s) as _);
 
         // setup OpenGL
         let mut vao = 0;

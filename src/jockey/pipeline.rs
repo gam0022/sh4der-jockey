@@ -402,7 +402,7 @@ impl Pipeline {
         // parse stages
         let mut stages = Vec::with_capacity(passes.len());
         for pass in passes {
-            let stage = Stage::from_yaml(pass)?;
+            let stage = Stage::from_yaml(pass).await?;
             stages.push(stage);
             yield_now().await;
         }

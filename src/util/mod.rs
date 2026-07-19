@@ -6,6 +6,7 @@ use std::{
 use gl::types::*;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 mod average;
 mod cache;
@@ -133,7 +134,52 @@ pub fn draw_vertices(vao: GLuint, count: GLsizei, mode: GLenum) {
     }
 }
 
+const COMPLETION_STATUS_ARB: GLenum = 0x91B1;
+static PARALLEL_SHADER_COMPILE: AtomicBool = AtomicBool::new(false);
+
+pub fn init_parallel_shader_compile<F>(mut load: F)
+where
+    F: FnMut(&str) -> *const std::ffi::c_void,
+{
+    let mut proc = load("glMaxShaderCompilerThreadsARB");
+    if proc.is_null() {
+        proc = load("glMaxShaderCompilerThreadsKHR");
+    }
+
+    if !proc.is_null() {
+        type MaxShaderCompilerThreads = unsafe extern "system" fn(GLuint);
+        let max_shader_compiler_threads: MaxShaderCompilerThreads =
+            unsafe { std::mem::transmute(proc) };
+        unsafe { max_shader_compiler_threads(0xffff_ffff) };
+        PARALLEL_SHADER_COMPILE.store(true, Ordering::Release);
+        log::info!("Parallel shader compilation enabled");
+    } else {
+        log::info!("Parallel shader compilation is not supported");
+    }
+}
+
 pub fn compile_shader(src: &str, ty: GLenum) -> Result<GLuint, String> {
+    unsafe {
+        let shader = gl::CreateShader(ty);
+        let c_str = CString::new(src.as_bytes()).unwrap();
+        gl::ShaderSource(shader, 1, &c_str.as_ptr(), std::ptr::null());
+        gl::CompileShader(shader);
+
+        let mut status = gl::FALSE as GLint;
+        gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut status);
+        if status != gl::TRUE as GLint {
+            let mut len = 0;
+            gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
+            let mut buf = Vec::with_capacity(len as usize);
+            buf.set_len((len as usize).saturating_sub(1));
+            gl::GetShaderInfoLog(shader, len, std::ptr::null_mut(), buf.as_mut_ptr() as _);
+            return Err(std::str::from_utf8_unchecked(&buf).into());
+        }
+        Ok(shader)
+    }
+}
+
+pub async fn compile_shader_async(src: &str, ty: GLenum) -> Result<GLuint, String> {
     unsafe {
         let shader = gl::CreateShader(ty);
 
@@ -141,6 +187,17 @@ pub fn compile_shader(src: &str, ty: GLenum) -> Result<GLuint, String> {
         let c_str = CString::new(src.as_bytes()).unwrap();
         gl::ShaderSource(shader, 1, &c_str.as_ptr(), std::ptr::null());
         gl::CompileShader(shader);
+
+        if PARALLEL_SHADER_COMPILE.load(Ordering::Acquire) {
+            loop {
+                let mut complete = gl::FALSE as GLint;
+                gl::GetShaderiv(shader, COMPLETION_STATUS_ARB, &mut complete);
+                if complete == gl::TRUE as GLint {
+                    break;
+                }
+                async_std::task::yield_now().await;
+            }
+        }
 
         // Get the compile status
         let mut status = gl::FALSE as GLint;
@@ -170,10 +227,41 @@ pub fn compile_shader(src: &str, ty: GLenum) -> Result<GLuint, String> {
 pub fn link_program(sh: &[GLuint]) -> Result<GLuint, String> {
     unsafe {
         let program = gl::CreateProgram();
+        sh.iter().for_each(|&s| gl::AttachShader(program, s));
+        gl::LinkProgram(program);
+
+        let mut status = gl::FALSE as GLint;
+        gl::GetProgramiv(program, gl::LINK_STATUS, &mut status);
+        if status != gl::TRUE as GLint {
+            let mut len = 0;
+            gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
+            let mut buf = Vec::with_capacity(len as usize);
+            buf.set_len((len as usize).saturating_sub(1));
+            gl::GetProgramInfoLog(program, len, std::ptr::null_mut(), buf.as_mut_ptr() as _);
+            return Err(std::str::from_utf8_unchecked(&buf).into());
+        }
+        Ok(program)
+    }
+}
+
+pub async fn link_program_async(sh: &[GLuint]) -> Result<GLuint, String> {
+    unsafe {
+        let program = gl::CreateProgram();
 
         // Link program
         sh.iter().for_each(|&s| gl::AttachShader(program, s));
         gl::LinkProgram(program);
+
+        if PARALLEL_SHADER_COMPILE.load(Ordering::Acquire) {
+            loop {
+                let mut complete = gl::FALSE as GLint;
+                gl::GetProgramiv(program, COMPLETION_STATUS_ARB, &mut complete);
+                if complete == gl::TRUE as GLint {
+                    break;
+                }
+                async_std::task::yield_now().await;
+            }
+        }
 
         // Get the link status
         let mut status = gl::FALSE as GLint;
