@@ -25,6 +25,7 @@ mod beatsync;
 mod config;
 mod midi;
 mod network;
+mod osc;
 mod pipeline;
 mod stage;
 mod uniforms;
@@ -34,6 +35,7 @@ pub use beatsync::*;
 pub use config::*;
 pub use midi::*;
 pub use network::*;
+pub use osc::*;
 pub use pipeline::*;
 pub use stage::*;
 pub use uniforms::*;
@@ -71,6 +73,12 @@ pub struct Jockey {
     pub midi: Midi,
     pub audio: Audio,
     pub ndi: Ndi,
+    pub sound2light_osc: Sound2LightOsc,
+    pub osc_bpm_sync_enabled: bool,
+    pub last_sound2light_bpm: Option<f32>,
+    pub osc_host: imgui::ImString,
+    pub osc_port: i32,
+    pub osc_protocol: OscProtocol,
     pub pipeline_files: Vec<String>,
     pub pipeline_index: usize,
     pub pipeline: Pipeline,
@@ -270,6 +278,11 @@ impl Jockey {
         let pipeline = Pipeline::splash_screen();
         let midi = Midi::new(&config, config_folder_path.as_deref());
         let ndi = Ndi::with_config_path(config_folder_path.clone());
+        let sound2light_osc = Sound2LightOsc::new(
+            DEFAULT_OSC_HOST,
+            DEFAULT_OSC_PORT,
+            OscProtocol::Tcp10,
+        );
 
         let console = "No pipeline has been built yet".into();
 
@@ -286,6 +299,12 @@ impl Jockey {
             midi,
             audio,
             ndi,
+            sound2light_osc,
+            osc_bpm_sync_enabled: true,
+            last_sound2light_bpm: None,
+            osc_host: imgui::ImString::new(DEFAULT_OSC_HOST),
+            osc_port: DEFAULT_OSC_PORT as i32,
+            osc_protocol: OscProtocol::Tcp10,
             pipeline_files: Vec::new(),
             pipeline,
             pipeline_index: 0,
@@ -507,6 +526,12 @@ impl Jockey {
 
         self.midi.check_connections();
         self.midi.handle_input();
+        if let Some(bpm) = self.sound2light_osc.latest_bpm() {
+            self.last_sound2light_bpm = Some(bpm);
+            if self.osc_bpm_sync_enabled {
+                self.beat_sync.set_bpm(bpm);
+            }
+        }
 
         let mut take_screenshot = false;
         let mut do_update_pipeline = unsafe { PIPELINE_STALE.swap(false, Ordering::AcqRel) }
@@ -1343,6 +1368,55 @@ impl Jockey {
         }
 
         if let Some(window) = imgui::Window::new(im_str!("Beat Sync")).begin(&ui) {
+            if ui.checkbox(
+                im_str!("Sound2Light OSC BPM Sync"),
+                &mut self.osc_bpm_sync_enabled,
+            ) && !self.osc_bpm_sync_enabled
+            {
+                self.beat_sync._reset();
+            }
+
+            ui.input_text(im_str!("Host##osc-host"), &mut self.osc_host)
+                .build();
+            ui.input_int(im_str!("Port##osc-port"), &mut self.osc_port)
+                .build();
+
+            ui.text("Protocol:");
+            ui.same_line();
+            ui.radio_button(im_str!("UDP"), &mut self.osc_protocol, OscProtocol::Udp);
+            ui.same_line();
+            ui.radio_button(
+                im_str!("TCP 1.0"),
+                &mut self.osc_protocol,
+                OscProtocol::Tcp10,
+            );
+            ui.same_line();
+            ui.radio_button(
+                im_str!("TCP 1.1"),
+                &mut self.osc_protocol,
+                OscProtocol::Tcp11,
+            );
+
+            if ui.button(im_str!("Apply OSC Settings")) {
+                if self.osc_port > 0
+                    && self.osc_port <= u16::MAX as i32
+                    && !self.osc_host.to_str().is_empty()
+                {
+                    self.sound2light_osc.reconfigure(
+                        self.osc_host.to_str(),
+                        self.osc_port as u16,
+                        self.osc_protocol,
+                    );
+                    self.last_sound2light_bpm = None;
+                    self.beat_sync._reset();
+                }
+            }
+
+            ui.text(match self.last_sound2light_bpm {
+                Some(bpm) => format!("OSC /s2l/out/bpm: {bpm}"),
+                None => "OSC /s2l/out/bpm: waiting...".to_owned(),
+            });
+
             if ui.button_with_size(im_str!("Tab here"), [128.0, 32.0]) {
                 self.beat_sync.trigger();
             }
