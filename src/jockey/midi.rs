@@ -193,6 +193,12 @@ impl Midi {
                     _velocity: data1,
                 }),
 
+                0x90 if data1 == 0 => Some(MessageKind::NoteOff {
+                    channel,
+                    key: data0,
+                    _velocity: data1,
+                }),
+
                 0x90 => Some(MessageKind::NoteOn {
                     channel,
                     key: data0,
